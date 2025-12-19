@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>头像镜像生成器</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Inter", "Microsoft Yahei", sans-serif;
+            background: radial-gradient(circle at 20% 20%, #1f2937, #0b1021 45%), radial-gradient(circle at 80% 0%, #111827, #0b1021 55%), linear-gradient(135deg, #0ea5e9, #6366f1);
+            min-height: 100vh;
+            padding: 32px 20px 48px;
+            color: #e5e7eb;
+        }
+
+        .app-shell {
+            max-width: 1100px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(18px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+            padding: 24px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        .title {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+
+        .subtitle {
+            color: #9ca3af;
+            font-size: 14px;
+        }
+
+        .chip {
+            padding: 6px 10px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(14, 165, 233, 0.15));
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            font-size: 12px;
+            color: #c7d2fe;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 16px;
+            padding: 16px;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .control {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 12px;
+            border-radius: 12px;
+        }
+
+        .control label {
+            font-size: 13px;
+            color: #d1d5db;
+        }
+
+        .control input[type=range] {
+            accent-color: #60a5fa;
+        }
+
+        .shape-group,
+        .toggle-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .pill {
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.03);
+            color: #e5e7eb;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .pill.active {
+            background: linear-gradient(135deg, rgba(14, 165, 233, 0.25), rgba(99, 102, 241, 0.25));
+            border-color: rgba(99, 102, 241, 0.5);
+            color: #fff;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            border: none;
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 13px;
+            cursor: pointer;
+            color: #0b1021;
+            font-weight: 600;
+            transition: transform 0.15s ease, box-shadow 0.2s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #38bdf8, #6366f1);
+            color: #fff;
+            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.35);
+        }
+
+        .btn-ghost {
+            background: rgba(255, 255, 255, 0.06);
+            color: #e5e7eb;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .btn:active {
+            transform: translateY(1px) scale(0.99);
+        }
+
+        .preview-area {
+            margin-top: 18px;
+            display: grid;
+            grid-template-columns: 1fr 1.1fr;
+            gap: 16px;
+        }
+
+        .drop-zone {
+            border: 1px dashed rgba(255, 255, 255, 0.35);
+            border-radius: 16px;
+            padding: 16px;
+            text-align: center;
+            color: #cbd5e1;
+            background: rgba(255, 255, 255, 0.04);
+            transition: border-color 0.25s, background 0.25s;
+        }
+
+        .drop-zone.dragover {
+            border-color: #60a5fa;
+            background: rgba(96, 165, 250, 0.08);
+        }
+
+        .mirror-preview-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle at 30% 30%, rgba(99, 102, 241, 0.14), rgba(14, 165, 233, 0.06)), #0b1021;
+            border-radius: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 22px;
+            position: relative;
+            overflow: hidden;
+            min-height: 420px;
+        }
+
+        .glow-blob {
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.25), transparent 60%);
+            filter: blur(60px);
+            top: 10%;
+            left: 8%;
+            pointer-events: none;
+            animation: float 10s ease-in-out infinite;
+        }
+
+        .glow-blob:nth-child(2) {
+            background: radial-gradient(circle, rgba(14, 165, 233, 0.2), transparent 60%);
+            top: auto;
+            bottom: 10%;
+            left: auto;
+            right: 10%;
+            animation-duration: 12s;
+            animation-delay: -2s;
+        }
+
+        @keyframes float {
+            0% { transform: translate(0, 0); }
+            50% { transform: translate(10px, -12px); }
+            100% { transform: translate(0, 0); }
+        }
+
+        .mirror-wrapper {
+            position: relative;
+            width: 340px;
+            height: 340px;
+            aspect-ratio: 1 / 1;
+        }
+
+        .mirror-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            background-size: cover;
+            background-position: center;
+            border-radius: 18px;
+            border: 4px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.35);
+            transition: transform 0.5s ease, box-shadow 0.5s ease, opacity 0.35s ease;
+        }
+
+        .mirror-wrapper:hover .mirror-layer {
+            transform: translateY(-1px) scale(1.01) rotate(var(--hover-rotate, 0deg));
+        }
+
+        .badge-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+            font-size: 12px;
+            color: #a5b4fc;
+        }
+
+        #upload-input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #e5e7eb;
+            padding: 10px 12px;
+            border-radius: 10px;
+            outline: none;
+            font-size: 13px;
+        }
+
+        @media (max-width: 980px) {
+            .preview-area {
+                grid-template-columns: 1fr;
+            }
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .mirror-wrapper {
+                width: 280px;
+                height: 280px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-shell">
+        <div class="header">
+            <div>
+                <div class="title">头像镜像生成器</div>
+                <div class="subtitle">上传或拖拽图片，调节层数 / 形态 / 光效，导出高分辨率头像</div>
+            </div>
+            <span class="chip">高清导出 · 纯前端</span>
+        </div>
+
+        <div class="panel">
+            <div class="controls-grid">
+                <div class="control">
+                    <label>镜像层数 <span id="depth-val">5</span></label>
+                    <input type="range" id="depth" min="3" max="8" value="5">
+                </div>
+                <div class="control">
+                    <label>偏移强度 <span id="spread-val">14</span>px</label>
+                    <input type="range" id="spread" min="8" max="24" value="14">
+                </div>
+                <div class="control">
+                    <label>旋转幅度 <span id="rotate-val">2.5</span>°</label>
+                    <input type="range" id="rotate" min="0" max="6" step="0.1" value="2.5">
+                </div>
+                <div class="control">
+                    <label>缩放衰减 <span id="scale-val">0.9</span></label>
+                    <input type="range" id="scale" min="0.75" max="0.95" step="0.01" value="0.9">
+                </div>
+                <div class="control">
+                    <label>镜像形态</label>
+                    <div class="shape-group">
+                        <button class="pill active" data-shape="rounded">圆角</button>
+                        <button class="pill" data-shape="circle">圆形</button>
+                        <button class="pill" data-shape="hex">六边形</button>
+                    </div>
+                </div>
+                <div class="control">
+                    <label>特效</label>
+                    <div class="toggle-group">
+                        <button class="pill active" data-glow="on">霓虹辉光</button>
+                        <button class="pill" data-glow="off">柔和阴影</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button class="btn btn-primary" id="upload-btn">上传图片</button>
+                <button class="btn btn-ghost" id="demo-btn">示例图</button>
+                <button class="btn btn-ghost" id="reset-btn">重置</button>
+                <button class="btn btn-primary" id="save-btn">保存高清PNG</button>
+                <input type="file" id="file-upload" accept="image/jpeg,image/png" hidden>
+            </div>
+            <input type="text" id="upload-input" placeholder="选择本地图片，或拖拽到左侧区域" readonly>
+            <div class="badge-row">
+                <span>导出分辨率：≈ 2x 清晰度</span>
+                <span>拖拽或点击上传</span>
+            </div>
+        </div>
+
+        <div class="preview-area">
+            <div class="drop-zone" id="drop-zone">
+                <strong>拖拽图片到此处</strong>
+                <div style="margin-top:6px; font-size:13px; color:#9ca3af;">支持 JPG / PNG，建议 512×512+</div>
+            </div>
+            <div class="mirror-preview-container" id="preview-container">
+                <div class="glow-blob"></div>
+                <div class="glow-blob"></div>
+                <div class="mirror-wrapper" id="mirror-wrapper"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const fileUpload = document.getElementById('file-upload');
+        const uploadBtn = document.getElementById('upload-btn');
+        const demoBtn = document.getElementById('demo-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const saveBtn = document.getElementById('save-btn');
+        const uploadInput = document.getElementById('upload-input');
+        const dropZone = document.getElementById('drop-zone');
+        const mirrorWrapper = document.getElementById('mirror-wrapper');
+
+        const depthSlider = document.getElementById('depth');
+        const spreadSlider = document.getElementById('spread');
+        const rotateSlider = document.getElementById('rotate');
+        const scaleSlider = document.getElementById('scale');
+        const depthVal = document.getElementById('depth-val');
+        const spreadVal = document.getElementById('spread-val');
+        const rotateVal = document.getElementById('rotate-val');
+        const scaleVal = document.getElementById('scale-val');
+        const shapeButtons = document.querySelectorAll('[data-shape]');
+        const glowButtons = document.querySelectorAll('[data-glow]');
+
+        const MAX_LAYERS = 8;
+        const BASE_SIZE = 340;
+        const SAMPLE_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgwIiBoZWlnaHQ9IjQ4MCIgdmlld0JveD0iMCAwIDQ4MCA0ODAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJncmFkIiB4MT0iMCUiIHkxPSIwJSIgeDI9IjAlIiB5Mj0iMTAwJSI+PHN0b3Agc3RvcC1jb2xvcj0iI2M0MzdlZSIgb2Zmc2V0PSIwJSIvPjxzdG9wIHN0b3AtY29sb3I9IiM0ZjhmZjYiIG9mZnNldD0iMTAwJSIvPjwvbGluZWFyR3JhZGllbnQ+PGxpbmVhckdyYWRpZW50IGlkPSJsaWciIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIHN0b3AtY29sb3I9IiNmZjlkNjYiIG9mZnNldD0iMCUiLz48c3RvcCBzdG9wLWNvbG9yPSIjZmY1YTMxIiBvZmZzZXQ9IjEwMCUiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iNDgwIiBoZWlnaHQ9IjQ4MCIgZmlsbD0idXJsKCNncmFkKSIvPjxjaXJjbGUgY3g9IjI0MCIgY3k9IjIwNSIgcj0iMTMwIiBmaWxsPSJ1cmwoI2xpZykiIG9wYWNpdHk9Ii44Ii8+PGNpcmNsZSBjeD0iMjQwIiBjeT0iMjQwIiByPSI4MCIgZmlsbD0iI2ZmZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMGIxMDIxIiBmb250LXNpemU9IjcyIiBmb250LWZhbWlseT0iQXJpYWwiPkF2YXRhciE8L3RleHQ+PC9zdmc+';
+
+        const state = {
+            imageUrl: SAMPLE_IMAGE,
+            depth: 5,
+            spread: 14,
+            rotation: 2.5,
+            scaleDecay: 0.9,
+            glow: true,
+            shape: 'rounded'
+        };
+
+        const layers = [];
+        function initLayers() {
+            mirrorWrapper.innerHTML = '';
+            for (let i = 0; i < MAX_LAYERS; i++) {
+                const layer = document.createElement('div');
+                layer.className = 'mirror-layer';
+                mirrorWrapper.appendChild(layer);
+                layers.push(layer);
+            }
+        }
+
+        function applyImage(url) {
+            state.imageUrl = url;
+            layers.forEach(layer => {
+                layer.style.backgroundImage = `url(${url})`;
+            });
+        }
+
+        function updatePills(group, active) {
+            group.forEach(btn => btn.classList.toggle('active', btn.dataset.shape === active || btn.dataset.glow === active));
+        }
+
+        function renderLayers() {
+            layers.forEach((layer, idx) => {
+                if (idx >= state.depth) {
+                    layer.style.display = 'none';
+                    return;
+                }
+                const scale = Math.pow(state.scaleDecay, idx);
+                const size = BASE_SIZE * scale;
+                const offset = state.spread * idx * 0.6;
+                const rotDirection = idx % 2 === 0 ? 1 : -1;
+                const rot = rotDirection * state.rotation * (1 + idx * 0.12);
+
+                layer.style.display = 'block';
+                layer.style.width = `${size}px`;
+                layer.style.height = `${size}px`;
+                layer.style.top = `${offset}px`;
+                layer.style.left = `${offset}px`;
+                layer.style.opacity = Math.max(0.35, 1 - idx * 0.12);
+                layer.style.transform = `rotate(${rot}deg)`;
+                layer.style.setProperty('--hover-rotate', `${rot * 0.4}deg`);
+
+                if (state.shape === 'circle') {
+                    layer.style.borderRadius = '50%';
+                    layer.style.clipPath = 'none';
+                } else if (state.shape === 'hex') {
+                    layer.style.borderRadius = '16px';
+                    layer.style.clipPath = 'polygon(25% 5%, 75% 5%, 95% 50%, 75% 95%, 25% 95%, 5% 50%)';
+                } else {
+                    layer.style.borderRadius = '18px';
+                    layer.style.clipPath = 'none';
+                }
+
+                layer.style.boxShadow = state.glow
+                    ? '0 18px 45px rgba(99, 102, 241, 0.45), 0 6px 18px rgba(14, 165, 233, 0.25)'
+                    : '0 12px 28px rgba(0,0,0,0.35)';
+                layer.style.backgroundImage = `url(${state.imageUrl})`;
+            });
+        }
+
+        function handleFile(file) {
+            if (!file) return;
+            const isImage = file.type === 'image/jpeg' || file.type === 'image/png';
+            const isLt4M = file.size / 1024 / 1024 < 4;
+            if (!isImage) return alert('仅支持 JPG / PNG 图片');
+            if (!isLt4M) return alert('图片大小需小于 4MB');
+            uploadInput.value = file.name;
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = e => {
+                applyImage(e.target.result);
+                renderLayers();
+            };
+        }
+
+        uploadBtn.addEventListener('click', () => fileUpload.click());
+        fileUpload.addEventListener('change', e => handleFile(e.target.files[0]));
+
+        dropZone.addEventListener('dragover', e => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', e => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            handleFile(file);
+        });
+
+        depthSlider.addEventListener('input', e => {
+            state.depth = Number(e.target.value);
+            depthVal.textContent = state.depth;
+            renderLayers();
+        });
+        spreadSlider.addEventListener('input', e => {
+            state.spread = Number(e.target.value);
+            spreadVal.textContent = state.spread;
+            renderLayers();
+        });
+        rotateSlider.addEventListener('input', e => {
+            state.rotation = Number(e.target.value);
+            rotateVal.textContent = state.rotation;
+            renderLayers();
+        });
+        scaleSlider.addEventListener('input', e => {
+            state.scaleDecay = Number(e.target.value);
+            scaleVal.textContent = state.scaleDecay.toFixed(2);
+            renderLayers();
+        });
+
+        shapeButtons.forEach(btn => btn.addEventListener('click', () => {
+            state.shape = btn.dataset.shape;
+            updatePills(shapeButtons, state.shape);
+            renderLayers();
+        }));
+
+        glowButtons.forEach(btn => btn.addEventListener('click', () => {
+            state.glow = btn.dataset.glow === 'on';
+            updatePills(glowButtons, state.glow ? 'on' : 'off');
+            renderLayers();
+        }));
+
+        demoBtn.addEventListener('click', () => {
+            uploadInput.value = '内置示例图';
+            applyImage(SAMPLE_IMAGE);
+            renderLayers();
+        });
+
+        resetBtn.addEventListener('click', () => {
+            depthSlider.value = state.depth = 5;
+            spreadSlider.value = state.spread = 14;
+            rotateSlider.value = state.rotation = 2.5;
+            scaleSlider.value = state.scaleDecay = 0.9;
+            depthVal.textContent = '5';
+            spreadVal.textContent = '14';
+            rotateVal.textContent = '2.5';
+            scaleVal.textContent = '0.9';
+            state.shape = 'rounded';
+            state.glow = true;
+            updatePills(shapeButtons, 'rounded');
+            updatePills(glowButtons, 'on');
+            applyImage(SAMPLE_IMAGE);
+            uploadInput.value = '';
+            renderLayers();
+        });
+
+        saveBtn.addEventListener('click', async () => {
+            try {
+                const canvas = await html2canvas(mirrorWrapper, {
+                    scale: 2.5,
+                    useCORS: true,
+                    backgroundColor: null,
+                    logging: false
+                });
+                canvas.toBlob(blob => {
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `avatar_${Date.now()}.png`;
+                    link.click();
+                    URL.revokeObjectURL(link.href);
+                }, 'image/png', 1);
+            } catch (err) {
+                console.error(err);
+                alert('保存失败，请重试');
+            }
+        });
+
+        // 初始化
+        initLayers();
+        applyImage(SAMPLE_IMAGE);
+        renderLayers();
+    </script>
+</body>
+
+</html>
