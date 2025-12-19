@@ -18,20 +18,32 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: 20 # 指定 Node 版本（适配 Vite 要求）
-        cache: 'npm' # 缓存 npm 依赖，加速构建
+        cache: 'pnpm' # 改为缓存 pnpm 依赖（关键！替换原 npm 缓存）
 
-    - name: Install and Build 🔧
+    - name: Install pnpm 📦
       run: |
-        npm ci # 严格安装 package-lock.json 中的依赖（比 npm install 更稳定）
-        npm run build # Vite 打包命令（输出到 dist 目录，而非 build）
+        # 全局安装 pnpm（GitHub Actions 环境默认无 pnpm）
+        npm install -g pnpm@8.x # 指定稳定版本，避免兼容问题
+        # 验证 pnpm 安装成功
+        pnpm --version
+
+    - name: Install Dependencies 🔧
+      run: |
+        # 严格按 pnpm-lock.yaml 安装依赖（等价于 npm ci）
+        pnpm install --frozen-lockfile
       env:
         # 传递仓库名给 Vite，确保 base 路径正确
         VITE_GITHUB_REPO: ${{ github.event.repository.name }}
 
+    - name: Build Project 📦
+      run: |
+        # 执行 pnpm 构建命令（替换 npm run build）
+        pnpm run build
+
     - name: Deploy 🚀
       uses: JamesIves/github-pages-deploy-action@v4
       with:
-        folder: dist # 关键！Vite 默认打包输出到 dist，替换原模板的 build
+        folder: dist # 关键！Vite 默认打包输出到 dist
         branch: gh-pages # 部署到 gh-pages 分支（个人仓库必须）
         clean: true # 部署前清空 gh-pages 分支旧文件（避免缓存）
         force: true # 强制推送（解决分支冲突）
