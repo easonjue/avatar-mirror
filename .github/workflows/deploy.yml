@@ -1,0 +1,41 @@
+name: Build and Deploy
+on: [ push ]
+permissions:
+  contents: write # 授予写入仓库内容的权限（必须）
+  pages: write # 补充 Pages 部署权限（避免部署失败）
+  id-token: write
+jobs:
+  build-and-deploy:
+    concurrency: ci-${{ github.ref }} # 避免并发部署冲突
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout 🛎️
+      uses: actions/checkout@v6
+      with:
+        fetch-depth: 0 # 拉取完整提交记录（可选，避免构建时 git 信息缺失）
+
+    - name: Set up Node.js 🟢
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20 # 指定 Node 版本（适配 Vite 要求）
+        cache: 'npm' # 缓存 npm 依赖，加速构建
+
+    - name: Install and Build 🔧
+      run: |
+        npm ci # 严格安装 package-lock.json 中的依赖（比 npm install 更稳定）
+        npm run build # Vite 打包命令（输出到 dist 目录，而非 build）
+      env:
+        # 传递仓库名给 Vite，确保 base 路径正确
+        VITE_GITHUB_REPO: ${{ github.event.repository.name }}
+
+    - name: Deploy 🚀
+      uses: JamesIves/github-pages-deploy-action@v4
+      with:
+        folder: dist # 关键！Vite 默认打包输出到 dist，替换原模板的 build
+        branch: gh-pages # 部署到 gh-pages 分支（个人仓库必须）
+        clean: true # 部署前清空 gh-pages 分支旧文件（避免缓存）
+        force: true # 强制推送（解决分支冲突）
+        # 可选：自定义提交信息
+        commit-message: "Deploy: ${{ github.sha }}"
+        # 禁用 Jekyll（避免 GitHub 解析静态文件出错）
+        disable-jekyll: true
