@@ -6,16 +6,19 @@ import path from 'path';
 const GITHUB_REPO_NAME = 'avatar-mirror';
 
 export default defineConfig(({ mode }) => ({
+  // 修复：确保 base 路径正确，GitHub Pages 需要以 / 结尾
   base: mode === 'production' ? `/${GITHUB_REPO_NAME}/` : '/',
 
   plugins: [react()],
 
   build: {
     outDir: 'dist',
+    // 修复：assetsDir 不要以 / 开头，避免与 base 拼接时产生双斜杠
     assetsDir: 'static',
     emptyOutDir: true,
     rollupOptions: {
       output: {
+        // 修复：路径不要以 / 开头
         entryFileNames: `static/js/[name]-[hash].js`,
         chunkFileNames: `static/js/[name]-[hash].js`,
         assetFileNames: `static/[ext]/[name]-[hash].[ext]`,
@@ -23,8 +26,6 @@ export default defineConfig(({ mode }) => ({
         compact: true,
       },
     },
-    // 兜底：禁止手动设置 assetsPublicPath（避免叠加斜杠）
-    assetsPublicPath: '',
   },
 
   resolve: {
@@ -33,10 +34,8 @@ export default defineConfig(({ mode }) => ({
     },
   },
 
-  // server: {
-  //   host: '0.0.0.0',
-  //   port: 3000,
-  //   // 本地开发允许外部访问（可选）
-  //   allowedHosts: 'all',
-  // },
+  server: {
+    host: '0.0.0.0',
+    port: 3000,
+  },
 }));
