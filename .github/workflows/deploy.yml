@@ -1,53 +1,68 @@
 name: Build and Deploy
 on: [ push ]
 permissions:
-  contents: write # 授予写入仓库内容的权限（必须）
-  pages: write # 补充 Pages 部署权限（避免部署失败）
+  contents: write
+  pages: write
   id-token: write
 jobs:
   build-and-deploy:
-    concurrency: ci-${{ github.ref }} # 避免并发部署冲突
+    concurrency: ci-${{ github.ref }}
     runs-on: ubuntu-latest
     steps:
     - name: Checkout 🛎️
       uses: actions/checkout@v6
       with:
-        fetch-depth: 0 # 拉取完整提交记录（可选，避免构建时 git 信息缺失）
+        fetch-depth: 0
 
     - name: Set up Node.js 🟢
       uses: actions/setup-node@v4
       with:
-        node-version: 20 # 指定 Node 版本（适配 Vite 要求）
-        cache: 'pnpm' # 改为缓存 pnpm 依赖（关键！替换原 npm 缓存）
+        node-version: 20
+        # 先不缓存 pnpm（避免查找未安装的 pnpm），后续手动缓存
+        cache: ''
 
-    - name: Install pnpm 📦
+    - name: 校验并安装 pnpm 📦
       run: |
-        # 全局安装 pnpm（GitHub Actions 环境默认无 pnpm）
-        npm install -g pnpm@8.x # 指定稳定版本，避免兼容问题
-        # 验证 pnpm 安装成功
+        # 1. 校验 pnpm 是否存在（返回 0 则存在，非 0 则安装）
+        if ! command -v pnpm &> /dev/null; then
+          echo "pnpm 未安装，开始安装..."
+          # 官方推荐的安装方式（比 npm install -g 更稳定）
+          curl -fsSL https://get.pnpm.io/install.sh | sh -
+          # 将 pnpm 加入环境变量（关键！否则后续命令找不到 pnpm）
+          echo "$HOME/.local/share/pnpm" >> $GITHUB_PATH
+          echo "$HOME/.pnpm-store" >> $GITHUB_PATH
+        else
+          echo "pnpm 已安装，版本：$(pnpm --version)"
+        fi
+
+    - name: 缓存 pnpm 依赖 🚀
+      uses: actions/cache@v3
+      with:
+        # pnpm 依赖缓存路径（不同系统路径一致）
+        path: ~/.pnpm-store
+        # 缓存密钥（锁文件变化时重新缓存）
+        key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+        # 回退缓存（锁文件未变时复用旧缓存）
+        restore-keys: |
+          ${{ runner.os }}-pnpm-
+
+    - name: 安装项目依赖 🔧
+      run: |
+        # 验证 pnpm 版本（可选，便于调试）
         pnpm --version
-
-    - name: Install Dependencies 🔧
-      run: |
-        # 严格按 pnpm-lock.yaml 安装依赖（等价于 npm ci）
+        # 严格安装依赖
         pnpm install --frozen-lockfile
       env:
-        # 传递仓库名给 Vite，确保 base 路径正确
         VITE_GITHUB_REPO: ${{ github.event.repository.name }}
 
-    - name: Build Project 📦
-      run: |
-        # 执行 pnpm 构建命令（替换 npm run build）
-        pnpm run build
+    - name: 构建项目 📦
+      run: pnpm run build
 
-    - name: Deploy 🚀
+    - name: 部署到 GitHub Pages 🚀
       uses: JamesIves/github-pages-deploy-action@v4
       with:
-        folder: dist # 关键！Vite 默认打包输出到 dist
-        branch: gh-pages # 部署到 gh-pages 分支（个人仓库必须）
-        clean: true # 部署前清空 gh-pages 分支旧文件（避免缓存）
-        force: true # 强制推送（解决分支冲突）
-        # 可选：自定义提交信息
-        commit-message: "Deploy: ${{ github.sha }}"
-        # 禁用 Jekyll（避免 GitHub 解析静态文件出错）
+        folder: dist
+        branch: gh-pages
+        clean: true
+        force: true
         disable-jekyll: true
